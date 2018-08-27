@@ -138,6 +138,16 @@ def parse_args(args=sys.argv[1:]):
                         default=dog_high,
                         help="The sigma for the background gaussian for the "
                         "difference of gaussians")
+    parser.add_argument("--log-level",
+                        default="INFO",
+                        help="The log level for the Python logger: one of "
+                        '"DEBUG", "INFO", "WARNING", "ERROR", or "CRITICAL".')
+    parser.add_argument("--log-file",
+                        help="File to log to. Default is console.")
+    parser.add_argument("--log-format",
+                        help="Format for log messages. See "
+                        "https://docs.python.org/3/howto/logging.html"
+                        "#changing-the-format-of-displayed-messages for help")
     pargs = parser.parse_args(args)
     io_threads = pargs.io_threads
     processing_threads = pargs.processing_threads
@@ -318,8 +328,15 @@ def segment_block(x0, x1, y0, y1, z0a, z1a):
 
 def main(args=sys.argv[1:]):
     global x_extent, y_extent, z_extent, stack_files
-    logging.basicConfig()
     args = parse_args(args)
+    logging_kwargs = {}
+    if args.log_level is not None:
+        logging_kwargs["level"] = getattr(logging, args.log_level.upper())
+    if args.log_format is not None:
+        logging_kwargs["format"] = args.log_format
+    if args.log_file is not None:
+        logging_kwargs["filename"] = args.log_filename
+    logging.basicConfig(**logging_kwargs)
     stack_files = sorted(glob.glob(args.input))
     #
     # Compute the block extents
