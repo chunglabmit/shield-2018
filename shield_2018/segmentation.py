@@ -233,6 +233,7 @@ def segment(dog, curv, x0, x1, y0, y1, z0, z1):
     x0a, x1a, y0a, y1a, z0a, z1a = get_padded_coords(x0, x1, y0, y1, z0, z1)
     dogg = dog[z0a:z1a, y0a:y1a, x0a:x1a]
     curvv = curv[z0a:z1a, y0a:y1a, x0a:x1a]
+    curvv[np.isnan(curvv)] = 0
     curvvt1 = curvv[(curvv > 0) & (curvv < 100)]
     if len(curvvt1) == 0:
         return np.zeros((0, 4))
