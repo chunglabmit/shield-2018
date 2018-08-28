@@ -384,7 +384,7 @@ def main(args=sys.argv[1:]):
         coords.append(c)
         areas.append(a)
     coords = np.vstack(coords)
-    areas = np.vstack(areas)
+    areas = np.hstack(areas)
     #
     # Eliminate duplicates if they are too close
     #
