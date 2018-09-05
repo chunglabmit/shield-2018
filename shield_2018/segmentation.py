@@ -324,7 +324,7 @@ def segment_block(x0, x1, y0, y1, z0a, z1a):
             mask = c[:, -1] >= min_area
             c[:, 0] = c[:, 0] + z0p
             c[:, 1] = c[:, 1] + y0p
-            c[:, 2] = c[:, 2] + z0p
+            c[:, 2] = c[:, 2] + x0p
             coords.append(c[mask])
     coords = np.vstack(coords)
     return coords[:, :3], coords[:, 3]
