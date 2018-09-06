@@ -18,7 +18,8 @@ setup(
     author="Kwanghun Chung Lab",
     packages=["shield_2018"],
     entry_points={ 'console_scripts': [
-        'shield-2018-segment=shield_2018.segmentation:main'
+        'shield-2018-segment=shield_2018.segmentation:main',
+        'download-assets=shield_2018.download_assets:main'
     ]},
     url="https://github.com/chunglabmit/shield_2018",
     license="MIT",

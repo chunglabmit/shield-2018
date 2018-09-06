@@ -131,3 +131,15 @@ messages. The default is to display log messages on the console.
 * **log-format** is the display format for log messages. See
 https://docs.python.org/3/howto/logging.html#changing-the-format-of-displayed-messages
 for help.
+
+## Allen Brain Mouse Atlas
+
+The alignment for the Shield paper was done using files derived
+from the Allen Brain Mouse Atlas (2018). These files are available
+via the GIT repository, https://github.com/chunglabmit/shield-2018-assets
+See the [README.md](https://github.com/chunglabmit/shield-2018-assets/blob/master/README.md)
+file for more details.
+
+The docker image stores these files at
+/allen-brain-mouse-atlas in its filesystem, so they are readily
+available for use in the Nuggt alignment commands.
