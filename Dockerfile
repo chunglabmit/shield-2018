@@ -12,7 +12,10 @@ ADD . /shield-2018/shield-2018
 WORKDIR /shield-2018/shield-2018
 RUN pip3 install -r requirements.txt
 RUN pip3 install --editable .
-RUN download-assets --destination /allen-mouse-brain-atlas
+#
+# This took too long to do / ate up our GITHUB LFS storage
+#
+#RUN download-assets --destination /allen-mouse-brain-atlas
 #
 # Install terastitcher
 #
