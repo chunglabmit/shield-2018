@@ -8,9 +8,10 @@ import argparse
 import logging
 import os
 import requests
+from xml.dom.minidom import parseString as parseXMLString
 
 content_url = \
-    "https://api.github.com/repos/chunglabmit/shield-2018-assets/contents/atlas"
+    "http://leviathan-chunglab.mit.edu/shield-2018/atlas/"
 
 
 def parse_args():
@@ -44,13 +45,20 @@ def main():
 
     if not os.path.isdir(args.destination):
         os.makedirs(args.destination)
-    content = requests.get(content_url).json()
-    for entry in content:
-        # The "name" key is the filename.
-        name = entry["name"]
+    #
+    # The apache server serves the directory listing like this:
+    # <html><body><ul><li><a href="Parent directory">...</a></li>
+    #       <li><a href="filename">...</a></li>...</ul></body></html>
+    #
+    content = requests.get(content_url + "?F=0").content.decode("ascii")
+    html_start = content.find("<html>")
+    doc = parseXMLString(content[html_start:])
+    body = doc.getElementsByTagName("body")[0]
+    ul = body.getElementsByTagName("ul")[0]
+    for entry in ul.getElementsByTagName("a")[1:]:
+        name = entry.getAttribute("href")
         filename = os.path.join(args.destination, name)
-        # The "download_url" key tells you how to get it
-        url = "https://github.com/chunglabmit/shield-2018-assets/blob/master/atlas/%s?raw=true" % name
+        url = content_url + name
         logging.info("Writing %s" % filename)
         with open(filename, 'wb') as fd:
             for chunk in requests.get(url).iter_content(chunk_size=4096):
