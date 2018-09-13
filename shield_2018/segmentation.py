@@ -390,12 +390,16 @@ def main(args=sys.argv[1:]):
     #
     kdt = KDTree(coords)
     too_close = np.array(sorted(kdt.query_pairs(5)))
-    reverse = too_close[:, 1] > too_close[:, 0]
-    too_close[reverse, 0], too_close[reverse, 1] = \
-        too_close[reverse, 1], too_close[reverse, 0]
-    to_exclude = np.unique(too_close[:, 1])
-    weeded_coords = np.delete(coords, to_exclude, 0)
-    weeded_areas = np.delete(areas, to_exclude)
+    if len(too_close) > 0:
+        reverse = too_close[:, 1] > too_close[:, 0]
+        too_close[reverse, 0], too_close[reverse, 1] = \
+            too_close[reverse, 1], too_close[reverse, 0]
+        to_exclude = np.unique(too_close[:, 1])
+        weeded_coords = np.delete(coords, to_exclude, 0)
+        weeded_areas = np.delete(areas, to_exclude)
+    else:
+        weeded_coords = coords
+        weeded_areas = areas
     #
     # This is a fakey JSON writer, just because it may take a long time
     # to write using the json library
