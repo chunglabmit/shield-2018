@@ -91,7 +91,7 @@ def parse_args(args=sys.argv[1:]):
                         help="The size of a processing block in the Y direction")
     parser.add_argument("--block-size-z",
                         type=int,
-                        default=200,
+                        default=100,
                         help="The size of a processing block in the Z direction")
     parser.add_argument("--crop-x",
                         help="Crop the volume to these x coordinates. "
@@ -114,7 +114,6 @@ def parse_args(args=sys.argv[1:]):
                         type=int,
                         default=processing_threads,
                         help="# of threads to use during computation")
-    t1max, t1min, t2max, t2min, min_area, dog_low, dog_high
     parser.add_argument("--t1min",
                         type=float,
                         default=t1min,
@@ -152,15 +151,6 @@ def parse_args(args=sys.argv[1:]):
                         "https://docs.python.org/3/howto/logging.html"
                         "#changing-the-format-of-displayed-messages for help")
     pargs = parser.parse_args(args)
-    io_threads = pargs.io_threads
-    processing_threads = pargs.processing_threads
-    padding = pargs.padding
-    t1min = pargs.t1min
-    t1max = pargs.t1max
-    t2min = pargs.t2min
-    t2max = pargs.t2max
-    dog_low = pargs.dog_low
-    dog_high = pargs.dog_high
     return pargs
 
 def get_padded_coords(x0, x1, y0, y1, z0, z1):
@@ -331,47 +321,132 @@ def segment_block(x0, x1, y0, y1, z0a, z1a):
 
 
 def main(args=sys.argv[1:]):
-    global x_extent, y_extent, z_extent, stack_files
     args = parse_args(args)
+    do_segmentation(
+        args.input,
+        args.output,
+        args.block_size_x,
+        args.block_size_y,
+        args.block_size_z,
+        args.crop_x,
+        args.crop_y,
+        args.crop_z,
+        args.padding,
+        args.io_threads,
+        args.processing_threads,
+        args.t1min,
+        args.t1max,
+        args.t2min,
+        args.t2max,
+        args.dog_low,
+        args.dog_high,
+        args.log_level,
+        args.log_file,
+        args.log_format
+    )
+
+def do_segmentation(
+        input,
+        output,
+        block_size_x=1024,
+        block_size_y=1024,
+        block_size_z=100,
+        crop_x=None,
+        crop_y=None,
+        crop_z=None,
+        padding=30,
+        io_threads=io_threads,
+        processing_threads=processing_threads,
+        t1min=t1min,
+        t1max=t1max,
+        t2min=t2min,
+        t2max=t2max,
+        dog_low=dog_low,
+        dog_high=dog_high,
+        log_level="INFO",
+        log_filename=None,
+        log_format=None):
+    """Run the segmentation pipeline
+
+    :param input: A glob expression for the stack of images to
+                  analyze, for instance, "/path-to/img_*.tiff".
+    :param output: The path to the output json file of cell centers
+    :param block_size_x: The size of a processing block in the X direction
+    :param block_size_y: The size of a processing block in the Y direction
+    :param block_size_z: The size of a processing block in the Z direction.
+    It may be necessary to set this in order to reduce memory consumption.
+    :param crop_x: Crop the volume to these x coordinates.
+                   Specify as a two-tuple of minimum and maximum coordinates.
+    :param crop_y: Crop the volume to these y coordinates.
+                   Specify as a two-tuple of minimum and maximum coordinates.
+    :param crop_z:  Crop the volume to these z coordinates.
+                   Specify as a two-tuple of minimum and maximum coordinates.
+    :param padding: The amt of padding to add to a block
+    :param io_threads: # of threads to use when reading image files
+    :param processing_threads: # of threads to use during computation
+    :param t1min: The minimum allowed threshold for the low Otsu
+    :param t1max: The maximum allowed threshold for the low Otsu
+    :param t2min: The minimum allowed threshold for the high Otsu
+    :param t2max: The maximum allowed threshold for the high Otsu
+    :param dog_low: The sigma for the foreground gaussian for the
+                    difference of gaussians
+    :param dog_high: The sigma for the background gaussian for the
+                     difference of gaussians
+    :param log_level: The log level for the Python logger: one of "
+                      "DEBUG", "INFO", "WARNING", "ERROR", or "CRITICAL".
+    :param log_filename: File to log to. Default is console.
+    :param log_format: Format for log messages. See "
+                        "https://docs.python.org/3/howto/logging.html"
+                        "#changing-the-format-of-displayed-messages for help
+    """
+    global x_extent, y_extent, z_extent, stack_files
+    for name in ("io_threads", "processing_threads", "padding",
+        "t1min", "t1max", "t2min", "t2max", "dog_low", "dog_high"):
+        globals()[name] = locals()[name]
+
     logging_kwargs = {}
-    if args.log_level is not None:
-        logging_kwargs["level"] = getattr(logging, args.log_level.upper())
-    if args.log_format is not None:
-        logging_kwargs["format"] = args.log_format
-    if args.log_file is not None:
-        logging_kwargs["filename"] = args.log_filename
+    if log_level is not None:
+        logging_kwargs["level"] = getattr(logging, log_level.upper())
+    if log_format is not None:
+        logging_kwargs["format"] = log_format
+    if log_filename is not None:
+        logging_kwargs["filename"] = log_filename
     logging.basicConfig(**logging_kwargs)
-    stack_files = sorted(glob.glob(args.input))
+    stack_files = sorted(glob.glob(input))
     #
     # Compute the block extents
     #
     z_extent = len(stack_files)
-    y_extent, x_extent = tifffile.imread(stack_files[0]).shape
-    if args.crop_z is None:
+    try:
+        y_extent, x_extent = tifffile.imread(stack_files[0]).shape
+    except IndexError:
+        sys.stderr.write("Could not find stack files at %s" % input)
+        exit(1)
+    if crop_z is None:
         zmin = 0
         zmax = z_extent
     else:
-        zmin, zmax = [int(_) for _ in args.crop_z.split(",")]
-    if args.crop_y is None:
+        zmin, zmax = [int(_) for _ in crop_z.split(",")]
+    if crop_y is None:
         ymin = 0
         ymax = y_extent
     else:
-        ymin, ymax = [int(_) for _ in args.crop_y.split(",")]
-    if args.crop_x is None:
+        ymin, ymax = [int(_) for _ in crop_y.split(",")]
+    if crop_x is None:
         xmin = 0
         xmax = x_extent
     else:
-        xmin, xmax = [int(_) for _ in args.crop_x.split(",")]
+        xmin, xmax = [int(_) for _ in crop_x.split(",")]
 
-    n_x = (xmax - xmin) // args.block_size_x
+    n_x = max(1, (xmax - xmin) // block_size_x)
     grid_x = np.linspace(xmin, xmax, n_x + 1).astype(int)
     x0 = grid_x[:-1]
     x1 = grid_x[1:]
-    n_y = (ymax - ymin) // args.block_size_y
+    n_y = max(1, (ymax - ymin) // block_size_y)
     grid_y = np.linspace(ymin, ymax, n_y + 1).astype(int)
     y0 = grid_y[:-1]
     y1 = grid_y[1:]
-    n_z = (zmax - zmin) // args.block_size_z
+    n_z = max(1, (zmax - zmin) // block_size_z)
     grid_z = np.linspace(zmin, zmax, n_z + 1).astype(int)
     z0 = grid_z[:-1]
     z1 = grid_z[1:]
@@ -404,7 +479,7 @@ def main(args=sys.argv[1:]):
     # This is a fakey JSON writer, just because it may take a long time
     # to write using the json library
     #
-    with open(args.output, "w") as fd:
+    with open(output, "w") as fd:
         first_time = True
         for z, y, x in weeded_coords:
             if first_time:
