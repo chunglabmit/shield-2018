@@ -12,12 +12,16 @@ from xml.dom.minidom import parseString as parseXMLString
 
 content_url = \
     "http://leviathan-chunglab.mit.edu/shield-2018/atlas/"
+tutorial_content_url = \
+    "http://leviathan-chunglab.mit.edu/shield-2018/tutorial/images/Color_1/"
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--destination",
                         help="Download directory")
+    parser.add_argument("--tutorial", action="store_true",
+                        help="Download the tutorial files.")
     parser.add_argument("--log-level",
                         default="INFO",
                         help="The log level for the Python logger: one of "
@@ -43,22 +47,28 @@ def main():
         logging_kwargs["filename"] = args.log_filename
     logging.basicConfig(**logging_kwargs)
 
-    if not os.path.isdir(args.destination):
-        os.makedirs(args.destination)
+    if args.tutorial:
+        base_url = tutorial_content_url
+        destination = os.path.join(args.destination, "images", "Color_1")
+    else:
+        base_url = content_url
+        destination = args.destination
+    if not os.path.isdir(destination):
+        os.makedirs(destination)
     #
     # The apache server serves the directory listing like this:
     # <html><body><ul><li><a href="Parent directory">...</a></li>
     #       <li><a href="filename">...</a></li>...</ul></body></html>
     #
-    content = requests.get(content_url + "?F=0").content.decode("ascii")
+    content = requests.get(base_url + "?F=0").content.decode("ascii")
     html_start = content.find("<html>")
     doc = parseXMLString(content[html_start:])
     body = doc.getElementsByTagName("body")[0]
     ul = body.getElementsByTagName("ul")[0]
     for entry in ul.getElementsByTagName("a")[1:]:
         name = entry.getAttribute("href")
-        filename = os.path.join(args.destination, name)
-        url = content_url + name
+        filename = os.path.join(destination, name)
+        url = base_url + name
         logging.info("Writing %s" % filename)
         with open(filename, 'wb') as fd:
             for chunk in requests.get(url).iter_content(chunk_size=4096):

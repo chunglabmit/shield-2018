@@ -16,6 +16,7 @@ RUN pip3 install --editable .
 # Download assets from website
 #
 RUN download-assets --destination /allen-mouse-brain-atlas
+RUN download-assets --tutorial --destination /tutorial
 #
 # Install terastitcher
 #
