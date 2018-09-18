@@ -53,7 +53,7 @@ docker run -v /path-to-stack:/stack \
 
 Commands from the Terastitcher and Nuggt packages can also be run from
 this docker. See [the Nuggt documentation](https://github.com/LeeKamentsky/nuggt#docker)
-for more help.
+and [the tutorial](docs/tutorial) for more help.
 
 ## The shield-2018-segment command
 
