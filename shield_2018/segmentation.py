@@ -407,7 +407,7 @@ def main(args=sys.argv[1:]):
         adaptive_threshold_sigma = args.adaptive_threshold_sigma,
         adaptive_threshold_block_size = args.adaptive_threshold_block_size,
         log_level = args.log_level,
-        log_file = args.log_file,
+        log_filename = args.log_file,
         log_format = args.log_format
     )
 
