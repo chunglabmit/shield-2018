@@ -56,6 +56,8 @@ class SegmentationParameters:
         self.dog_low = 3
         """The sigma for the second gaussian of the difference of gaussians"""
         self.dog_high = 10
+        """The divisor for the DOG image"""
+        self.dog_scaling = 1
         """Whether or not to run adaptive thresholding"""
         self.use_adaptive_threshold = False
         """Smoothing standard deviation applied to adaptive threshold grid"""
@@ -163,6 +165,10 @@ def parse_args(args=sys.argv[1:]):
                         default=defaults.dog_high,
                         help="The sigma for the background gaussian for the "
                         "difference of gaussians")
+    parser.add_argument("--dog-scaling",
+                        type=float,
+                        default=defaults.dog_scaling,
+                        help="A divisor for the DOG image to scale its range")
     parser.add_argument("--adaptive-threshold",
                         action="store_true",
                         help="Use a gridded and smoothed adaptive threshold "
@@ -246,7 +252,7 @@ def compute_dog(params: SegmentationParameters, x0, x1, y0, y1, xoff, yoff):
     with params.stackmem.txn() as stack:
         img = stack[:, y0a:y1a, x0a:x1a].astype(np.float32)
     dog = gaussian_filter(img, params.dog_low) -\
-          gaussian_filter(img, params.dog_high)
+          gaussian_filter(img, params.dog_high) / params.dog_scaling
     with params.dogmem.txn() as m:
         m[:, y0-yoff:y1-yoff, x0-xoff:x1-xoff] = \
             dog[:, y0-y0a:y1-y0a, x0-x0a:x1-x0a]
@@ -403,6 +409,7 @@ def main(args=sys.argv[1:]):
         t2max = args.t2max,
         dog_low = args.dog_low,
         dog_high = args.dog_high,
+        dog_scaling=args.dog_scaling,
         use_adaptive_threshold = args.adaptive_threshold,
         adaptive_threshold_sigma = args.adaptive_threshold_sigma,
         adaptive_threshold_block_size = args.adaptive_threshold_block_size,
@@ -429,6 +436,7 @@ def do_segmentation(
         t2max=defaults.t2max,
         dog_low=defaults.dog_low,
         dog_high=defaults.dog_high,
+        dog_scaling=defaults.dog_scaling,
         use_adaptive_threshold=defaults.use_adaptive_threshold,
         adaptive_threshold_sigma=defaults.adaptive_threshold_sigma,
         adaptive_threshold_block_size=defaults.adaptive_threshold_block_size,
