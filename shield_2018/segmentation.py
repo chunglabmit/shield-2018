@@ -251,8 +251,8 @@ def compute_dog(params: SegmentationParameters, x0, x1, y0, y1, xoff, yoff):
         params, x0, x1, y0, y1, 0, params.dogmem.shape[0])
     with params.stackmem.txn() as stack:
         img = stack[:, y0a:y1a, x0a:x1a].astype(np.float32)
-    dog = gaussian_filter(img, params.dog_low) -\
-          gaussian_filter(img, params.dog_high) / params.dog_scaling
+    dog = (gaussian_filter(img, params.dog_low) -
+           gaussian_filter(img, params.dog_high)) / params.dog_scaling
     with params.dogmem.txn() as m:
         m[:, y0-yoff:y1-yoff, x0-xoff:x1-xoff] = \
             dog[:, y0-y0a:y1-y0a, x0-x0a:x1-x0a]
