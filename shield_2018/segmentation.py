@@ -15,7 +15,7 @@ from scipy.spatial import KDTree
 from skimage.morphology import watershed
 import sys
 try:
-    from pathom.segmentation.torch_impl import eigvals_of_weingarten
+    from phathom.segmentation.torch_impl import eigvals_of_weingarten
 except ImportError:
     from phathom.segmentation.segmentation import eigvals_of_weingarten
 from phathom.utils import SharedMemory
