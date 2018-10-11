@@ -60,6 +60,8 @@ class SegmentationParameters:
         self.dog_scaling = 1
         """Whether or not to run adaptive thresholding"""
         self.use_adaptive_threshold = False
+        """Whether to do otsu on a log scale during adaptive thresholding"""
+        self.log_adaptive_threshold = False
         """Smoothing standard deviation applied to adaptive threshold grid"""
         self.adaptive_threshold_sigma = 1.0
         """Adaptive threshold grid size in voxels"""
@@ -173,6 +175,9 @@ def parse_args(args=sys.argv[1:]):
                         action="store_true",
                         help="Use a gridded and smoothed adaptive threshold "
                         "within the blocks.")
+    parser.add_argument("--log-adaptive-threshold",
+                        action="store_true",
+                        help="Perform adaptive otsu on a log-transformed image")
     parser.add_argument("--adaptive-threshold-sigma",
                         type=float,
                         default=defaults.adaptive_threshold_sigma,
@@ -278,12 +283,22 @@ def segment(params: SegmentationParameters, x0, x1, y0, y1, z0, z1):
     curvv = params.curv[z0a:z1a, y0a:y1a, x0a:x1a]
     curvv[np.isnan(curvv)] = 0
     if params.use_adaptive_threshold:
-        t1 = t2 = adaptive_threshold(
-            curvv,
-            low_threshold=params.t1min,
-            high_threshold=params.t1max,
-            sigma=params.adaptive_threshold_sigma,
-            blocksize=params.adaptive_threshold_block_size)
+        if params.log_adaptive_threshold:
+            eps = max(.00001, params.t1min / 10)
+            logt = adaptive_threshold(
+                np.log(curvv + eps),
+                low_threshold = np.log(params.t1min + eps),
+                high_threshold = np.log(params.t1max + eps),
+                sigma = params.adaptive_threshold_sigma,
+                blocksize = params.adaptive_threshold_block_size)
+            t1 = t2 = np.exp(logt) - eps
+        else:
+            t1 = t2 = adaptive_threshold(
+                curvv,
+                low_threshold=params.t1min,
+                high_threshold=params.t1max,
+                sigma=params.adaptive_threshold_sigma,
+                blocksize=params.adaptive_threshold_block_size)
     else:
         curvvt1 = curvv[(curvv > 0) & (curvv < params.t2max * 2)]
         if len(curvvt1) == 0:
@@ -411,6 +426,7 @@ def main(args=sys.argv[1:]):
         dog_high = args.dog_high,
         dog_scaling=args.dog_scaling,
         use_adaptive_threshold = args.adaptive_threshold,
+        log_adaptive_threshold = args.log_adaptive_threshold,
         adaptive_threshold_sigma = args.adaptive_threshold_sigma,
         adaptive_threshold_block_size = args.adaptive_threshold_block_size,
         log_level = args.log_level,
@@ -438,6 +454,7 @@ def do_segmentation(
         dog_high=defaults.dog_high,
         dog_scaling=defaults.dog_scaling,
         use_adaptive_threshold=defaults.use_adaptive_threshold,
+        log_adaptive_threshold=defaults.log_adaptive_threshold,
         adaptive_threshold_sigma=defaults.adaptive_threshold_sigma,
         adaptive_threshold_block_size=defaults.adaptive_threshold_block_size,
         use_seed_centers=defaults.use_seed_centers,
@@ -472,6 +489,8 @@ def do_segmentation(
                      difference of gaussians
     :param use_adaptive_threshold: Use a gridded and smoothed adaptive threshold
                     instead of a single threshold per processing block
+    :param log_adaptive_threshold: Calculate the threshold using a log scale
+           (adaptive method only)
     :param adaptive_threshold_sigma: The smoothing standard deviation applied
     to the adaptive threshold grid, if use_adaptive_threshold is used.
     :param adaptive_threshold_block_size: The size of each grid block in voxels
