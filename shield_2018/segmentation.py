@@ -68,6 +68,8 @@ class SegmentationParameters:
         self.adaptive_threshold_block_size = 50
         """Base cell centers on seed locations, not the cell centers after watershed"""
         self.use_seed_centers = False
+        """The minimum distance between cell centers"""
+        self.min_distance = 5
         #
         # These are global shared memory regions for multiprocessing
         #
@@ -192,6 +194,11 @@ def parse_args(args=sys.argv[1:]):
                         action="store_true",
                         help="Base the cell centers only on the location of "
                         "the seed points, foregoing the watershed.")
+    parser.add_argument("--min-distance",
+                        type=float,
+                        default=defaults.min_distance,
+                        help="The minimum distance between cell centers "
+                             "in voxels")
     parser.add_argument("--log-level",
                         default="INFO",
                         help="The log level for the Python logger: one of "
@@ -317,7 +324,13 @@ def segment(params: SegmentationParameters, x0, x1, y0, y1, z0, z1):
             except ValueError:
                 t2 = params.t2min
     tseed = (t1 + t2) / 2
-    footprint = np.sum(np.square(np.mgrid[-5:6, -5:6, -5:6]), 0) <= 25
+    imin_distance = int(params.min_distance + 1)
+    if imin_distance == params.min_distance + 1:
+        imin_distance -= 1
+    footprint = np.sum(np.square(
+        np.mgrid[-imin_distance:imin_distance+1,
+                 -imin_distance:imin_distance+1,
+                 -imin_distance:imin_distance+1]), 0) <= params.min_distance**2
     seed_mask = (curvv > tseed) & (grey_dilation(curvv, footprint=footprint) == curvv)
     seeds, count = label(seed_mask)
     if count == 0:
@@ -429,6 +442,7 @@ def main(args=sys.argv[1:]):
         log_adaptive_threshold = args.log_adaptive_threshold,
         adaptive_threshold_sigma = args.adaptive_threshold_sigma,
         adaptive_threshold_block_size = args.adaptive_threshold_block_size,
+        min_distance = args.min_distance,
         log_level = args.log_level,
         log_filename = args.log_file,
         log_format = args.log_format
@@ -458,6 +472,7 @@ def do_segmentation(
         adaptive_threshold_sigma=defaults.adaptive_threshold_sigma,
         adaptive_threshold_block_size=defaults.adaptive_threshold_block_size,
         use_seed_centers=defaults.use_seed_centers,
+        min_distance=defaults.min_distance,
         log_level="INFO",
         log_filename=None,
         log_format=None):
