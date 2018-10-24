@@ -585,7 +585,7 @@ def do_segmentation(
     #
     if len(coords) > 0:
         kdt = KDTree(coords)
-        too_close = np.array(sorted(kdt.query_pairs(5)))
+        too_close = np.array(sorted(kdt.query_pairs(params.min_distance)))
         if len(too_close) > 0:
             reverse = too_close[:, 1] > too_close[:, 0]
             too_close[reverse, 0], too_close[reverse, 1] = \
