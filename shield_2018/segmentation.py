@@ -263,8 +263,11 @@ def compute_dog(params: SegmentationParameters, x0, x1, y0, y1, xoff, yoff):
         params, x0, x1, y0, y1, 0, params.dogmem.shape[0])
     with params.stackmem.txn() as stack:
         img = stack[:, y0a:y1a, x0a:x1a].astype(np.float32)
-    dog = (gaussian_filter(img, params.dog_low) -
-           gaussian_filter(img, params.dog_high)) / params.dog_scaling
+    if params.dog_high == 0:
+        dog = gaussian_filter(img, params.dog_low) / params.dog_scaling
+    else:
+        dog = (gaussian_filter(img, params.dog_low) -
+               gaussian_filter(img, params.dog_high)) / params.dog_scaling
     with params.dogmem.txn() as m:
         m[:, y0-yoff:y1-yoff, x0-xoff:x1-xoff] = \
             dog[:, y0-y0a:y1-y0a, x0-x0a:x1-x0a]
@@ -345,7 +348,8 @@ def segment(params: SegmentationParameters, x0, x1, y0, y1, z0, z1):
     zc, yc, xc = [np.bincount(seg[zs, ys, xs], s)[1:] / a + off
                   for s, off in ((zs, z0a), (ys, y0a), (xs, x0a))]
     mask = (zc >= z0) & (zc < z1) & (yc >= y0) & (yc < y1) & (xc >= x0) & (xc < x1)
-    return np.column_stack((zc[mask], yc[mask], xc[mask], a[mask]))
+    coords = np.column_stack((zc[mask], yc[mask], xc[mask], a[mask]))
+    return coords
 
 
 def segment_block(params: SegmentationParameters, x0, x1, y0, y1, z0a, z1a):
@@ -442,6 +446,7 @@ def main(args=sys.argv[1:]):
         log_adaptive_threshold = args.log_adaptive_threshold,
         adaptive_threshold_sigma = args.adaptive_threshold_sigma,
         adaptive_threshold_block_size = args.adaptive_threshold_block_size,
+        use_seed_centers=args.seeds_only,
         min_distance = args.min_distance,
         log_level = args.log_level,
         log_filename = args.log_file,
