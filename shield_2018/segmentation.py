@@ -351,13 +351,24 @@ def segment(params: SegmentationParameters, x0, x1, y0, y1, z0, z1):
             except ValueError:
                 t2 = params.t2min
     tseed = (t1 + t2) / 2
-    imin_distance = int(params.min_distance + 1)
-    if imin_distance == params.min_distance + 1:
-        imin_distance -= 1
-    footprint = np.sum(np.square(
-        np.mgrid[-imin_distance:imin_distance+1,
-                 -imin_distance:imin_distance+1,
-                 -imin_distance:imin_distance+1]), 0) <= params.min_distance**2
+    if params.xy_microns is None:
+        imin_distance = int(params.min_distance + 1)
+        if imin_distance == params.min_distance + 1:
+            imin_distance -= 1
+        footprint = np.sum(np.square(
+            np.mgrid[-imin_distance:imin_distance+1,
+                     -imin_distance:imin_distance+1,
+                     -imin_distance:imin_distance+1]), 0) <=\
+                    params.min_distance**2
+    else:
+        ix = int(params.min_distance / params.xy_microns + 1)
+        iy = int(params.min_distance / params.xy_microns + 1)
+        iz = int(params.min_distance / params.z_microns + 1)
+        dgrid = np.mgrid[-iz:iz+1, -iy:iy+1, -ix:ix+1].astype(np.float32)
+        dgrid[0] *= params.z_microns
+        dgrid[1] *= params.xy_microns
+        dgrid[2] *= params.xy_microns
+        footprint = np.sum(np.square(dgrid), 0) <= params.min_distance ** 2
     seed_mask = (curvv > tseed) & (grey_dilation(curvv, footprint=footprint) == curvv)
     seeds, count = label(seed_mask)
     if count == 0:
@@ -627,7 +638,13 @@ def do_segmentation(
     # Eliminate duplicates if they are too close
     #
     if len(coords) > 0:
-        kdt = KDTree(coords)
+        if params.xy_microns is None:
+            coords_um = coords
+        else:
+            microns = np.array([[params.z_microns, params.xy_microns,
+                                 params.xy_microns]])
+            coords_um = coords * microns
+        kdt = KDTree(coords_um)
         too_close = np.array(sorted(kdt.query_pairs(params.min_distance)))
         if len(too_close) > 0:
             reverse = too_close[:, 1] > too_close[:, 0]
