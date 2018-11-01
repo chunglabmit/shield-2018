@@ -84,6 +84,23 @@ class TestDoSegmentation(unittest.TestCase):
                 self.assertAlmostEqual(coords[0][2], 20, delta=2)
 
 
+    def test_um(self):
+        z, y, x = np.mgrid[-20:80, -30:70, -40:60]
+        stack = np.zeros((100, 100, 100), np.uint16)
+        stack[x*x + y*y + z*z < 25] = 1000
+        with make_stack(stack) as glob_expr:
+            with tempfile.NamedTemporaryFile(suffix=".json") as output_tf:
+                seg.do_segmentation(glob_expr, output_tf.name,
+                                    use_seed_centers=True,
+                                    xy_microns=.65,
+                                    z_microns=2.0)
+                coords = json.load(output_tf)
+                self.assertEqual(len(coords), 1)
+                self.assertAlmostEqual(coords[0][0], 40, delta=2)
+                self.assertAlmostEqual(coords[0][1], 30, delta=2)
+                self.assertAlmostEqual(coords[0][2], 20, delta=2)
+
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -70,6 +70,10 @@ class SegmentationParameters:
         self.use_seed_centers = False
         """The minimum distance between cell centers"""
         self.min_distance = 5
+        """The size of a voxel in microns in the x and y directions"""
+        self.xy_microns = None
+        """The size of a voxel in microns in the z direction"""
+        self.z_microns = None
         #
         # These are global shared memory regions for multiprocessing
         #
@@ -199,6 +203,16 @@ def parse_args(args=sys.argv[1:]):
                         default=defaults.min_distance,
                         help="The minimum distance between cell centers "
                              "in voxels")
+    parser.add_argument("--xy-microns",
+                        type=float,
+                        default=defaults.xy_microns,
+                        help="The size of a voxel in microns in the x "
+                        "and y directions.")
+    parser.add_argument("--z-microns",
+                        type=float,
+                        default=defaults.z_microns,
+                        help="The size of a voxel in microns in the z "
+                        "direction.")
     parser.add_argument("--log-level",
                         default="INFO",
                         help="The log level for the Python logger: one of "
@@ -263,11 +277,21 @@ def compute_dog(params: SegmentationParameters, x0, x1, y0, y1, xoff, yoff):
         params, x0, x1, y0, y1, 0, params.dogmem.shape[0])
     with params.stackmem.txn() as stack:
         img = stack[:, y0a:y1a, x0a:x1a].astype(np.float32)
-    if params.dog_high == 0:
-        dog = gaussian_filter(img, params.dog_low) / params.dog_scaling
+    if params.xy_microns is None:
+        dog_low = params.dog_low
+        dog_high = params.dog_high
     else:
-        dog = (gaussian_filter(img, params.dog_low) -
-               gaussian_filter(img, params.dog_high)) / params.dog_scaling
+        dog_low = (params.dog_low / params.z_microns,
+                   params.dog_low / params.xy_microns,
+                   params.dog_low / params.xy_microns)
+        dog_high = (params.dog_high / params.z_microns,
+                    params.dog_high / params.xy_microns,
+                    params.dog_high / params.xy_microns)
+    if params.dog_high == 0:
+        dog = gaussian_filter(img, dog_low) / params.dog_scaling
+    else:
+        dog = (gaussian_filter(img, dog_low) -
+               gaussian_filter(img, dog_high)) / params.dog_scaling
     with params.dogmem.txn() as m:
         m[:, y0-yoff:y1-yoff, x0-xoff:x1-xoff] = \
             dog[:, y0-y0a:y1-y0a, x0-x0a:x1-x0a]
@@ -394,7 +418,13 @@ def segment_block(params: SegmentationParameters, x0, x1, y0, y1, z0a, z1a):
     params.curvmem = SharedMemory((z1p - z0p, y1p - y0p, x1p - x0p),
                                   np.float32)
     with params.dogmem.txn() as dog:
-        e = eigvals_of_weingarten(dog[:, :y1p-y0p, :x1p-x0p])
+        if params.xy_microns is None:
+            xum = yum = zum = 1
+        else:
+            xum = yum = params.xy_microns
+            zum = params.z_microns
+        e = eigvals_of_weingarten(dog[:, :y1p-y0p, :x1p-x0p],
+                                  xum=xum, yum=yum, zum=zum)
         params.curv[:] = np.all(e < 0, -1) * e[..., 0] * e[..., 1]
     params.dogmem = None
     with multiprocessing.Pool(params.processing_threads) as pool:
@@ -448,6 +478,8 @@ def main(args=sys.argv[1:]):
         adaptive_threshold_block_size = args.adaptive_threshold_block_size,
         use_seed_centers=args.seeds_only,
         min_distance = args.min_distance,
+        xy_microns = args.xy_microns,
+        z_microns = args.z_microns,
         log_level = args.log_level,
         log_filename = args.log_file,
         log_format = args.log_format
@@ -478,6 +510,8 @@ def do_segmentation(
         adaptive_threshold_block_size=defaults.adaptive_threshold_block_size,
         use_seed_centers=defaults.use_seed_centers,
         min_distance=defaults.min_distance,
+        xy_microns=defaults.xy_microns,
+        z_microns=defaults.z_microns,
         log_level="INFO",
         log_filename=None,
         log_format=None):
@@ -516,6 +550,10 @@ def do_segmentation(
     :param adaptive_threshold_block_size: The size of each grid block in voxels
     :param use_seed_centers: forgo the watershed and use the seeds as cell
                              centers
+    :param xy_microns: voxel size in the x and y directions for anisotropic
+                       volumes. Default is use isotropic volume with voxel size
+                       of (1, 1, 1)
+    :param z_microns: voxel size in the z direction
     :param log_level: The log level for the Python logger: one of "
                       "DEBUG", "INFO", "WARNING", "ERROR", or "CRITICAL".
     :param log_filename: File to log to. Default is console.
