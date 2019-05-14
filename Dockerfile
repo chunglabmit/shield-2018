@@ -1,5 +1,16 @@
-FROM chunglabmit/nuggt
+#
+# Run as:
+# docker build . --build-arg token=<github token>
+#
+# where <github token> is a token that can read the private repos (temporary)
+#
+FROM chunglabmit/nuggt:latest
+ARG token
 RUN mkdir /shield-2018
+#
+# Set up to use token authentication in Github
+#
+RUN git config --global url."https://${token}@github.com".insteadOf "https://github.com"
 #
 # Install Phathom
 #
@@ -16,7 +27,7 @@ RUN pip3 install --editable .
 # Download assets from website
 #
 RUN download-assets --destination /allen-mouse-brain-atlas
-RUN download-assets --tutorial --destination /tutorial
+#RUN download-assets --tutorial --destination /tutorial
 #
 # Install terastitcher
 #
@@ -36,4 +47,12 @@ RUN cd /shield-2018/pystripe;pip3 install -r requirements.txt;pip3 install -e .
 #
 RUN git clone https://github.com/chunglabmit/tsv /shield-2018/tsv
 RUN cd /shield-2018/tsv;pip3 install -r requirements.txt;pip3 install -e .
-
+#
+# Install Pystripe
+#
+RUN git clone https://github.com/chunglabmit/pystripe.git
+RUN cd /pystripe; python3 setup.py install
+#
+# Remove .gitconfig which has the token
+#
+RUN rm /root/.gitconfig
